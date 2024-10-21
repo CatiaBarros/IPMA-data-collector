@@ -1,8 +1,8 @@
-
 library(jsonlite)
 library(dplyr)
 library(tidyr)
 library(stringr)
+library(readr)
 
 warnings_url <- "https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json"
 districts_url <- "https://api.ipma.pt/open-data/distrits-islands.json"
@@ -35,6 +35,5 @@ merged_data <- merged_data %>%
 reshaped_data <- merged_data %>%
   select(local, awarenessTypeName, awarenessLevelID) %>%
   pivot_wider(names_from = awarenessTypeName, values_from = awarenessLevelID)
-
 
 write_csv(reshaped_data, "IPMA_alertas.csv")

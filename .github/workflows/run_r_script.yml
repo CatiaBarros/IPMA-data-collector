@@ -31,9 +31,9 @@ jobs:
       run: |
         Rscript your_script.R
 
-    # Upload the resulting CSV file as an artifact
+    # Upload the resulting CSV file as an artifact (using latest version of upload-artifact)
     - name: Upload CSV artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: IPMA_alertas.csv
         path: IPMA_alertas.csv

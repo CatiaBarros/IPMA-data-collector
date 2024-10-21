@@ -1,49 +1,50 @@
-name: Run R Script Every 10 Minutes
+name: Collect IPMA Data Every 10 Minutes
 
 on:
   schedule:
-    - cron: "*/10 * * * *"  # Runs every 10 minutes
-  workflow_dispatch:        # Allows manual triggers
+    - cron: "*/10 * * * *"  # Executa a cada 10 minutos
+  workflow_dispatch:        # Permite que o workflow seja acionado manualmente
 
 jobs:
-  run-r-script:
+  collect-ipma-data:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      # Baixar o repositório com os arquivos necessários
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Set up R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: '4.1.0'
+      # Instalar dependências de sistema necessárias para o R
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
 
-    - name: Install R dependencies
-      run: |
-        R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr', 'stringr', 'readr'))"
+      # Configurar o R no ambiente do GitHub Actions
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
 
-    # Log the files in the current directory to check if the script is there
-    - name: List files in the directory
-      run: ls -alh
+      # Instalar os pacotes R necessários para executar o script
+      - name: Install R Packages
+        run: |
+          R -e 'if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")'
+          R -e 'if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")'
+          R -e 'if (!requireNamespace("tidyr", quietly = TRUE)) install.packages("tidyr")'
+          R -e 'if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr")'
+          R -e 'if (!requireNamespace("readr", quietly = TRUE)) install.packages("readr")'
 
-    # Run the R script and capture output
-    - name: Run R script
-      run: |
-        Rscript data-ipma.R > output.log 2> error.log
-      continue-on-error: true
+      # Executar o script R para coletar os dados do IPMA
+      - name: Run IPMA Data Script
+        run: Rscript data-ipma.R
 
-    # Print the logs to diagnose issues
-    - name: Output R script logs
-      run: |
-        echo "Standard Output:"
-        cat output.log
-        echo "Error Output:"
-        cat error.log
-
-    # Upload the resulting CSV file as an artifact
-    - name: Upload CSV artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: IPMA_alertas.csv
-        path: IPMA_alertas.csv
-      continue-on-error: true  # Prevent failure if the file is not generated
+      # Comitar e enviar os dados coletados para o repositório
+      - name: Commit and Push Data
+        run: |
+          git config --local user.name "github-actions"
+          git config --local user.email "github-actions@github.com"
+          git add IPMA_alertas.csv
+          git commit -m "Update IPMA data collected from API" || exit 0  # Não falhar se não houver mudanças
+          git pull https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/occurrence-data-collector.git main
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/occurrence-data-collector.git main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

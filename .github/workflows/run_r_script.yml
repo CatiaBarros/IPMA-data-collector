@@ -26,14 +26,24 @@ jobs:
     - name: List files in the directory
       run: ls -alh
 
-    # Run the R script
+    # Run the R script and capture output
     - name: Run R script
       run: |
-        Rscript data-ipma.R
+        Rscript data-ipma.R > output.log 2> error.log
+      continue-on-error: true
 
-    # Upload the resulting CSV file as an artifact (using latest version of upload-artifact)
+    # Print the logs to diagnose issues
+    - name: Output R script logs
+      run: |
+        echo "Standard Output:"
+        cat output.log
+        echo "Error Output:"
+        cat error.log
+
+    # Upload the resulting CSV file as an artifact
     - name: Upload CSV artifact
       uses: actions/upload-artifact@v3
       with:
         name: IPMA_alertas.csv
         path: IPMA_alertas.csv
+      continue-on-error: true  # Prevent failure if the file is not generated

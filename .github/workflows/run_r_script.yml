@@ -2,30 +2,25 @@ name: Collect IPMA Data Every 10 Minutes
 
 on:
   schedule:
-    - cron: "0 */12 * * *"  
+    - cron: "*/10 * * * *"  
   workflow_dispatch:       
-
 
 jobs:
   collect-ipma-data:
     runs-on: ubuntu-latest
 
     steps:
-      # Baixar o repositório com os arquivos necessários
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Instalar dependências de sistema necessárias para o R
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
 
-      # Configurar o R no ambiente do GitHub Actions
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
 
-      # Instalar os pacotes R necessários para executar o script
       - name: Install R Packages
         run: |
           R -e 'if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")'
@@ -34,18 +29,16 @@ jobs:
           R -e 'if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr")'
           R -e 'if (!requireNamespace("readr", quietly = TRUE)) install.packages("readr")'
 
-      # Executar o script R para coletar os dados do IPMA
       - name: Run IPMA Data Script
         run: Rscript data-ipma.R
 
-      # Comitar e enviar os dados coletados para o repositório
       - name: Commit and Push Data
         run: |
           git config --local user.name "github-actions"
           git config --local user.email "github-actions@github.com"
           git add IPMA_alertas.csv
-          git commit -m "Update IPMA data collected from API" || exit 0  # Não falhar se não houver mudanças
-          git pull https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/occurrence-data-collector.git main
-          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/occurrence-data-collector.git main
+          git commit -m "Update IPMA data collected from API" || exit 0
+          git pull https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/IPMA-data-collector.git main
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/CatiaBarros/IPMA-data-collector.git main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,67 +1,68 @@
 library(jsonlite)
 library(dplyr)
 library(tidyr)
-library(stringr)
-library(readr)
 
-# Load warnings and district data
-warnings_url <- "https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json"
-districts_url <- "https://api.ipma.pt/open-data/distrits-islands.json"
+# URL do JSON
+url <- "https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json"
 
-warnings <- fromJSON(warnings_url)
-districts <- fromJSON(districts_url)$data
+# Carregar JSON
+data <- fromJSON(url)
 
-# Garantir que districts seja um data.frame
-if (!is.data.frame(districts)) {
-  districts <- as.data.frame(districts)
-}
+# Tabela de mapeamento para awarenessLevelID
+awareness_map <- c(
+  "green" = "Verde",
+  "yellow" = "Amarelo",
+  "orange" = "Laranja",
+  "red" = "Vermelho",
+  "grey" = "Cinzento"
+)
 
-# Converter a coluna 'local' para character
-districts <- districts %>%
-  mutate(local = as.character(local))
+# Tabela de mapeamento para idAreaAviso
+area_map <- c(
+  "BGC" = "Bragança",
+  "ACE" = NA,  # Excluir
+  "VIS" = "Viseu",
+  "EVR" = "Évora",
+  "PTO" = "Porto",
+  "AOC" = NA,  # Excluir
+  "GDA" = "Guarda",
+  "FAR" = "Faro",
+  "VRL" = "Vila Real",
+  "STB" = "Setúbal",
+  "STM" = "Santarém",
+  "MRM" = NA,  # Excluir
+  "VCT" = "Viana do Castelo",
+  "LRA" = "Leiria",
+  "MCN" = NA,  # Excluir
+  "BJA" = "Beja",
+  "CBO" = "Castelo Branco",
+  "AVR" = "Aveiro",
+  "CBR" = "Coimbra",
+  "PTG" = "Portalegre",
+  "MPS" = NA,  # Excluir
+  "BRG" = "Braga",
+  "MCS" = NA   # Excluir
+)
 
-# Remova linhas com 'local' inválido
-districts <- districts %>%
-  filter(!is.na(local) & local != "")
+# Substituir os valores de awarenessLevelID e idAreaAviso
+data <- data %>%
+  mutate(
+    awarenessLevelID = awareness_map[awarenessLevelID],
+    idAreaAviso = area_map[idAreaAviso]
+  ) %>%
+  filter(!is.na(idAreaAviso))  # Excluir os NA (áreas excluídas)
 
-# Defina os distritos de interesse
-locais_interesse <- c("Aveiro", "Beja", "Braga", "Bragança", "Castelo Branco", 
-                      "Coimbra", "Évora", "Faro", "Guarda", "Leiria", 
-                      "Lisboa", "Portalegre", "Porto", "Santarém", "Setúbal", 
-                      "Viana do Castelo", "Vila Real", "Viseu")
+# Pivotar para criar o formato do CSV final
+final_data <- data %>%
+  select(idAreaAviso, awarenessTypeName, awarenessLevelID) %>%
+  pivot_wider(names_from = awarenessTypeName, values_from = awarenessLevelID) %>%
+  rename(local = idAreaAviso)
 
-# Filtre os distritos de interesse
-districts_filtered <- districts %>%
-  filter(local %in% locais_interesse)
+# Preencher os NAs com "Verde" (caso alguma categoria esteja ausente)
+final_data[is.na(final_data)] <- "Cinzento"
 
-# Verifique se o filtro resultou em dados
-if (nrow(districts_filtered) == 0) {
-  stop("Nenhum distrito correspondente foi encontrado!")
-}
+# Salvar o CSV
+write.csv(final_data, "avisos_ipma.csv", row.names = FALSE)
 
-# Junte os dados com os avisos
-merged_data <- districts_filtered %>%
-  left_join(warnings, by = "idAreaAviso")
-
-# Traduza os níveis de alerta
-merged_data <- merged_data %>%
-  mutate(awarenessLevelID = case_when(
-    awarenessLevelID == "green" ~ "Verde",
-    awarenessLevelID == "yellow" ~ "Amarelo",
-    awarenessLevelID == "orange" ~ "Laranja",
-    awarenessLevelID == "red" ~ "Vermelho",
-    awarenessLevelID == "grey" ~ "Cinzento",
-    TRUE ~ "Sem Aviso"
-  ))
-
-# Transforme os dados na estrutura desejada
-reshaped_data <- merged_data %>%
-  select(local, awarenessTypeName, awarenessLevelID) %>%
-  pivot_wider(
-    names_from = awarenessTypeName,
-    values_from = awarenessLevelID,
-    values_fill = list(awarenessLevelID = "Sem Aviso")
-  )
-
-# Escreva para CSV
-write_csv(reshaped_data, "IPMA_alertas.csv")
+# Mensagem de sucesso
+cat("CSV gerado com sucesso como 'avisos_ipma.csv'\n")

@@ -11,26 +11,35 @@ districts_url <- "https://api.ipma.pt/open-data/distrits-islands.json"
 warnings <- fromJSON(warnings_url)
 districts <- fromJSON(districts_url)$data
 
-# Converta 'districts' para data.frame, se necessário
+# Verifique se 'districts' está no formato correto
 if (!is.data.frame(districts)) {
   districts <- as.data.frame(districts)
 }
 
-# Define districts of interest
+# Remova linhas com 'local' inválido
+districts <- districts %>%
+  filter(!is.na(local) & local != "")
+
+# Defina os distritos de interesse
 locais_interesse <- c("Aveiro", "Beja", "Braga", "Bragança", "Castelo Branco", 
                       "Coimbra", "Évora", "Faro", "Guarda", "Leiria", 
                       "Lisboa", "Portalegre", "Porto", "Santarém", "Setúbal", 
                       "Viana do Castelo", "Vila Real", "Viseu")
 
-# Filter districts to only those of interest
+# Filtre os distritos de interesse
 districts_filtered <- districts %>%
   filter(local %in% locais_interesse)
 
-# Join data on idAreaAviso
+# Verifique se o filtro resultou em dados
+if (nrow(districts_filtered) == 0) {
+  stop("Nenhum distrito correspondente foi encontrado!")
+}
+
+# Junte os dados com os avisos
 merged_data <- districts_filtered %>%
   left_join(warnings, by = "idAreaAviso")
 
-# Translate awareness levels
+# Traduza os níveis de alerta
 merged_data <- merged_data %>%
   mutate(awarenessLevelID = case_when(
     awarenessLevelID == "green" ~ "Verde",
@@ -38,10 +47,10 @@ merged_data <- merged_data %>%
     awarenessLevelID == "orange" ~ "Laranja",
     awarenessLevelID == "red" ~ "Vermelho",
     awarenessLevelID == "grey" ~ "Cinzento",
-    TRUE ~ "Sem Aviso"  # Assign "Sem Aviso" for unexpected or missing values
+    TRUE ~ "Sem Aviso"
   ))
 
-# Reshape data to the desired structure, filling empty cells with "Sem Aviso"
+# Transforme os dados na estrutura desejada
 reshaped_data <- merged_data %>%
   select(local, awarenessTypeName, awarenessLevelID) %>%
   pivot_wider(
@@ -50,5 +59,5 @@ reshaped_data <- merged_data %>%
     values_fill = list(awarenessLevelID = "Sem Aviso")
   )
 
-# Write to CSV
+# Escreva para CSV
 write_csv(reshaped_data, "IPMA_alertas.csv")

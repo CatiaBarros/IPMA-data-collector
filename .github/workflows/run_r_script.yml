@@ -33,8 +33,10 @@ jobs:
           write.csv(final_data, 'avisos_ipma.csv', row.names = FALSE); \
           cat('CSV gerado com sucesso como avisos_ipma.csv\\n');"
 
-      - name: Upload CSV file
-        uses: actions/upload-artifact@v3
-        with:
-          name: IPMA_alerts
-          path: avisos_ipma.csv
+      - name: Commit and Push CSV to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add avisos_ipma.csv
+          git commit -m "Update IPMA alerts CSV [skip ci]" || echo "No changes to commit"
+          git push

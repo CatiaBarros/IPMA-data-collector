@@ -11,6 +11,11 @@ districts_url <- "https://api.ipma.pt/open-data/distrits-islands.json"
 warnings <- fromJSON(warnings_url)
 districts <- fromJSON(districts_url)$data
 
+# Converta 'districts' para data.frame, se necessário
+if (!is.data.frame(districts)) {
+  districts <- as.data.frame(districts)
+}
+
 # Define districts of interest
 locais_interesse <- c("Aveiro", "Beja", "Braga", "Bragança", "Castelo Branco", 
                       "Coimbra", "Évora", "Faro", "Guarda", "Leiria", 

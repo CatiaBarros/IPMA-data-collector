@@ -11,10 +11,14 @@ districts_url <- "https://api.ipma.pt/open-data/distrits-islands.json"
 warnings <- fromJSON(warnings_url)
 districts <- fromJSON(districts_url)$data
 
-# Verifique se 'districts' está no formato correto
+# Garantir que districts seja um data.frame
 if (!is.data.frame(districts)) {
   districts <- as.data.frame(districts)
 }
+
+# Converter a coluna 'local' para character
+districts <- districts %>%
+  mutate(local = as.character(local))
 
 # Remova linhas com 'local' inválido
 districts <- districts %>%

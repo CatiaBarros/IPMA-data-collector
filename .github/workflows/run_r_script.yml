@@ -13,42 +13,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libxml2-dev libssl-dev
-
       - name: Set up R environment
         uses: r-lib/actions/setup-r@v2
 
       - name: Install required R packages
         run: |
-          Rscript -e "packages <- c('jsonlite', 'dplyr', 'tidyr', 'stringr', 'readr'); \
-                      installed <- rownames(installed.packages()); \
-                      for (pkg in packages) { \
-                        if (!pkg %in% installed) install.packages(pkg, repos='http://cran.rstudio.com/'); \
-                      }"
+          Rscript -e 'install.packages(c("jsonlite", "dplyr", "tidyr"))'
 
       - name: Run IPMA Alerts Processing Script
         run: |
-          Rscript -e "library(jsonlite); library(dplyr); library(tidyr); library(stringr); library(readr); \
-                      warnings_url <- 'https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json'; \
-                      districts_url <- 'https://api.ipma.pt/open-data/distrits-islands.json'; \
-                      warnings <- fromJSON(warnings_url); \
-                      districts <- fromJSON(districts_url)$data; \
-                      if (!is.data.frame(districts)) { districts <- as.data.frame(districts) }; \
-                      districts <- districts %>% mutate(across(everything(), ~ if (is.list(.)) unlist(.) else .)); \
-                      districts <- districts %>% filter(!is.na(local) & local != ''); \
-                      locais_interesse <- c('Aveiro', 'Beja', 'Braga', 'Bragança', 'Castelo Branco', 'Coimbra', 'Évora', 'Faro', 'Guarda', 'Leiria', 'Lisboa', 'Portalegre', 'Porto', 'Santarém', 'Setúbal', 'Viana do Castelo', 'Vila Real', 'Viseu'); \
-                      districts_filtered <- districts %>% filter(local %in% locais_interesse); \
-                      if (nrow(districts_filtered) == 0) { stop('Nenhum distrito correspondente foi encontrado!') }; \
-                      merged_data <- districts_filtered %>% left_join(warnings, by = 'idAreaAviso'); \
-                      merged_data <- merged_data %>% mutate(awarenessLevelID = case_when(awarenessLevelID == 'green' ~ 'Verde', awarenessLevelID == 'yellow' ~ 'Amarelo', awarenessLevelID == 'orange' ~ 'Laranja', awarenessLevelID == 'red' ~ 'Vermelho', awarenessLevelID == 'grey' ~ 'Cinzento', TRUE ~ 'Sem Aviso')); \
-                      reshaped_data <- merged_data %>% select(local, awarenessTypeName, awarenessLevelID) %>% pivot_wider(names_from = awarenessTypeName, values_from = awarenessLevelID, values_fill = list(awarenessLevelID = 'Sem Aviso')); \
-                      write_csv(reshaped_data, 'IPMA_alertas.csv')"
+          Rscript -e "library(jsonlite); library(dplyr); library(tidyr); \
+          url <- 'https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json'; \
+          data <- fromJSON(url); \
+          awareness_map <- c('green' = 'Verde', 'yellow' = 'Amarelo', 'orange' = 'Laranja', 'red' = 'Vermelho', 'grey' = 'Cinzento'); \
+          area_map <- c('BGC' = 'Bragança', 'ACE' = NA, 'VIS' = 'Viseu', 'EVR' = 'Évora', 'PTO' = 'Porto', 'AOC' = NA, 'GDA' = 'Guarda', 'FAR' = 'Faro', 'VRL' = 'Vila Real', 'STB' = 'Setúbal', 'STM' = 'Santarém', 'MRM' = NA, 'VCT' = 'Viana do Castelo', 'LRA' = 'Leiria', 'MCN' = NA, 'BJA' = 'Beja', 'CBO' = 'Castelo Branco', 'AVR' = 'Aveiro', 'CBR' = 'Coimbra', 'PTG' = 'Portalegre', 'MPS' = NA, 'BRG' = 'Braga', 'MCS' = NA); \
+          data <- data %>% mutate(awarenessLevelID = awareness_map[awarenessLevelID], idAreaAviso = area_map[idAreaAviso]) %>% filter(!is.na(idAreaAviso)); \
+          final_data <- data %>% select(idAreaAviso, awarenessTypeName, awarenessLevelID) %>% pivot_wider(names_from = awarenessTypeName, values_from = awarenessLevelID) %>% rename(local = idAreaAviso); \
+          final_data[is.na(final_data)] <- 'Cinzento'; \
+          write.csv(final_data, 'avisos_ipma.csv', row.names = FALSE); \
+          cat('CSV gerado com sucesso como avisos_ipma.csv\\n');"
 
       - name: Upload CSV file
         uses: actions/upload-artifact@v3
         with:
           name: IPMA_alerts
-          path: IPMA_alertas.csv
+          path: avisos_ipma.csv
